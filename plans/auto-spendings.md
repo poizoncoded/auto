@@ -40,7 +40,10 @@ Verified in this workspace on 2026-07-19:
   `.claude/skills/`: `react-best-practices`, `feature-sliced-design`, `node`,
   `nest`, `typeorm`, `fastify`, `browser`, and `verification-quality`.
 - No dedicated local skill was found for PWA implementation, Telegram bot
-  implementation, QR scanning, Taxcom receipt lookup, receipt OCR, or Obscura.
+  implementation, QR scanning, Taxcom receipt lookup, or receipt OCR.
+- Obscura is not a local skill or OCR service. The supplied repository,
+  `h4ckf0r0day/obscura`, is an open-source Rust headless browser for AI agents
+  and web scraping with Chrome DevTools Protocol compatibility.
 
 ## Product Target
 
@@ -52,14 +55,21 @@ Required product decisions:
 - Frontend: Astro with React islands for interactive surfaces.
 - PWA: installable shell with offline-first viewing and offline entry queue.
 - Database: PostgreSQL database named `poizoncoded_auto`.
-- Privacy lock: simple six-digit PIN gate.
+- Hosting target: localhost for now.
+- Users: multi-user first release with isolated user-owned vehicle, category,
+  expense, and receipt data.
+- Privacy lock: per-user simple six-digit PIN gate.
+- Locale and currency: RU-only first release with Russian locale assumptions
+  and Russian ruble amounts.
 - Receipt capture: browser QR scanner that decodes receipt QR payloads and
   turns them into reviewed expense records.
-- Taxcom: use `https://receipt.taxcom.ru/` only through a verified, allowed
-  integration path.
-- Obscura: intentionally proposed but not verified. Confirm the exact Obscura
-  product, package, API, credentials model, and allowed usage before
-  implementation.
+- Receipt providers: support multiple fiscal receipt providers. Taxcom is the
+  first known provider candidate and must use `https://receipt.taxcom.ru/` only
+  through a verified, allowed integration path.
+- Obscura: use `h4ckf0r0day/obscura` only as a proposed server-side headless
+  browser option for the Taxcom integration spike. It is not a receipt parser
+  and must not be used to bypass rate limits, CAPTCHAs, access controls, or
+  terms.
 - Telegram bot: deferred and out of MVP scope.
 
 ## MVP Scope
@@ -67,8 +77,10 @@ Required product decisions:
 Ship these first:
 
 - Six-digit PIN setup, unlock, lock, and reset flow.
+- User creation, user selection or login, and strict data ownership boundaries.
 - Vehicle CRUD with name, type, fuel or energy unit, odometer unit, and default
   currency.
+- RU-only formatting for dates, numbers, currencies, and default units.
 - Category CRUD with icon, color, and category type.
 - Expense CRUD for fuel, charging, maintenance, parking, insurance, lease,
   parts, wash, tolls, and custom categories.
@@ -83,7 +95,6 @@ Ship these first:
 Defer these:
 
 - Telegram bot.
-- Multi-user accounts.
 - Subscription/payment features.
 - iCloud-like cross-device sync.
 - Home-screen widgets beyond normal PWA installability.
@@ -92,6 +103,11 @@ Defer these:
 
 Start with a single Astro application unless the backend grows enough to justify
 a separate API service.
+
+The first runtime target is localhost. Optimize the initial app for local
+development and local PostgreSQL, and defer production-specific Astro adapters,
+reverse proxy rules, and managed database connection choices until a real
+hosting target is chosen.
 
 Frontend layout:
 
@@ -113,12 +129,15 @@ Backend and persistence:
 - Keep database access behind server-side endpoints. Do not connect directly to
   PostgreSQL from browser code.
 - Keep environment values in `.env` locally and commit only `.env.example`.
+- Keep receipt provider integrations behind a server-side provider interface so
+  Taxcom and later providers share one reviewed import flow.
 - If the API becomes larger than Astro endpoints should carry, split the server
   into a NestJS or Fastify service and keep Astro as the PWA frontend.
 
 Initial database tables:
 
-- `pin_credentials`: PIN hash metadata, never plaintext PIN.
+- `users`: identity, display name, status, and audit timestamps.
+- `pin_credentials`: per-user PIN hash metadata, never plaintext PIN.
 - `vehicles`: vehicle profile, units, currency, archived state.
 - `categories`: user-defined expense categories, icon, color, sort order.
 - `expenses`: normalized spending record with amount, currency, date, category,
@@ -127,6 +146,8 @@ Initial database tables:
 - `receipts`: decoded QR payload, provider, fiscal fields, fetch status, raw
   response metadata, and review state.
 - `receipt_items`: optional line items imported from a verified receipt source.
+- `receipt_providers`: provider key, display name, supported QR fields, enabled
+  state, and integration metadata.
 
 ## QR And Taxcom Flow
 
@@ -138,7 +159,8 @@ Target flow:
 2. Browser camera scans the receipt QR code.
 3. Client decodes the QR payload.
 4. Server validates the decoded fields and stores a pending `receipts` row.
-5. Server uses the verified Taxcom-compatible path to retrieve receipt details.
+5. Server picks the matching receipt provider and uses its verified allowed path
+   to retrieve receipt details.
 6. User reviews merchant, date, total, category, vehicle, and line items.
 7. User saves the reviewed receipt as an expense.
 
@@ -149,9 +171,11 @@ Rules for the spike:
 - Confirm whether Taxcom allows automated lookup from this app. Prefer an
   official API or documented endpoint. Do not bypass rate limits, CAPTCHAs,
   access controls, or terms.
-- Confirm what "Obscura" means before depending on it. If it is an OCR or
-  document extraction service, add its docs, credentials, data-retention model,
-  and fallback behavior to this plan before implementation.
+- Model receipt lookup as a provider strategy from the start. Taxcom should not
+  be hard-coded as the only possible fiscal provider.
+- Evaluate `h4ckf0r0day/obscura` as a server-side Taxcom automation option only
+  if there is a verified allowed lookup path. Keep it outside browser client
+  code and do not treat it as OCR.
 - Treat imported receipt data as untrusted until the user reviews it.
 
 ## Security Notes
@@ -159,8 +183,9 @@ Rules for the spike:
 - A six-digit PIN is a privacy lock, not full authentication by itself.
 - Hash the PIN with a slow password-hashing algorithm and never store the PIN in
   plaintext.
-- If the app is deployed beyond a local single-user environment, add a real
-  server-side session boundary before exposing personal spending data.
+- Because the first release is multi-user, add a real server-side session
+  boundary before exposing personal spending data. The PIN gates access inside a
+  user account; it does not replace identity and session management.
 - Store receipt images only if required. Prefer storing structured receipt
   fields and user-reviewed data.
 - Do not commit database URLs, bot tokens, Obscura credentials, receipt samples,
@@ -191,24 +216,26 @@ Before calling the MVP complete:
 - `npm run lint`
 - `npm run typecheck`
 - Migration up/down against PostgreSQL database `poizoncoded_auto`.
-- Browser checks for desktop and mobile viewports.
+- Browser checks for desktop and mobile viewports on localhost.
 - PWA installability and offline behavior check.
 - QR import test with synthetic and user-approved sample receipt payloads.
+- RU-only locale check: Russian date/number formatting and RUB currency output.
 - `git diff --check`
 
 These commands are future checks. They cannot pass yet because the app scaffold
 does not exist.
 
-## Open Questions
+## Resolved Decisions
 
-- What exactly is Obscura: package, service, internal tool, or API?
-- Should the first release be single-user local-only, single-user remote, or
-  multi-user?
-- Which hosting target should drive the Astro adapter and database connection
-  model?
-- Should all receipt lookup traffic go through Taxcom, or should the app
-  support multiple fiscal receipt providers later?
-- Which currencies and locales are required for the first release?
+- Resolved on 2026-07-19: Obscura is
+  `https://github.com/h4ckf0r0day/obscura`, an open-source Rust headless
+  browser for AI agents and web scraping.
+- Resolved on 2026-07-19: the first release is multi-user with a per-user
+  six-digit PIN privacy lock.
+- Resolved on 2026-07-19: localhost is the hosting target for now.
+- Resolved on 2026-07-19: receipt lookup should support multiple fiscal receipt
+  providers, not only Taxcom.
+- Resolved on 2026-07-19: the first release is RU-only for locale and currency.
 
 ## Evidence
 
@@ -234,5 +261,6 @@ External evidence checked on 2026-07-19:
 
 - `https://apps.apple.com/ru/app/codriver-car-expense-tracker/id1565445958`
 - `https://receipt.taxcom.ru/`
+- `https://github.com/h4ckf0r0day/obscura`
 - `https://docs.astro.build/en/guides/integrations-guide/react/`
 - `https://vite-pwa-org.netlify.app/frameworks/astro`
