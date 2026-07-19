@@ -21,6 +21,8 @@ Verified baseline features from the listing:
 - Offline use, import/export, locale and currency support.
 - Device widgets and iCloud sync in the original app. These are reference
   features only; the PWA should solve the same user problems in its own way.
+- No personal or vehicle income-tracking capability is described in the
+  listing. It is outside the current MVP unless explicitly added later.
 
 ## Local Verification
 
@@ -64,12 +66,14 @@ Required product decisions:
 - Receipt capture: browser QR scanner that decodes receipt QR payloads and
   turns them into reviewed expense records.
 - Receipt providers: support multiple fiscal receipt providers. Taxcom is the
-  first known provider candidate and must use `https://receipt.taxcom.ru/` only
-  through a verified, allowed integration path.
+  first known verification candidate: its public checker accepts an FPD, exact
+  amount, and optional date for receipts sent through Taxcom. It is not a
+  confirmed automated import API, so the first automatic provider remains
+  undecided and must use a documented, allowed integration path.
 - Obscura: use `h4ckf0r0day/obscura` only as a proposed server-side headless
-  browser option for the Taxcom integration spike. It is not a receipt parser
-  and must not be used to bypass rate limits, CAPTCHAs, access controls, or
-  terms.
+  browser option for a later, explicitly permitted provider integration. It is
+  not a receipt parser, is not part of the MVP, and must not be used to bypass
+  rate limits, CAPTCHAs, access controls, or terms.
 - Telegram bot: deferred and out of MVP scope.
 
 ## MVP Scope
@@ -91,6 +95,11 @@ Ship these first:
 - Dashboard with totals, monthly trend, category split, distance driven, fuel
   efficiency, energy efficiency, and cost per distance.
 - CSV or JSON export for user-owned backup.
+
+Do not add a personal-income, vehicle-revenue, reimbursement, or delivery
+earnings flow without a separate product decision. A fiscal document's
+`Income` operation type describes the seller's transaction, not an Auto
+Spendings user's income.
 
 Defer these:
 
@@ -159,8 +168,9 @@ Target flow:
 2. Browser camera scans the receipt QR code.
 3. Client decodes the QR payload.
 4. Server validates the decoded fields and stores a pending `receipts` row.
-5. Server picks the matching receipt provider and uses its verified allowed path
-   to retrieve receipt details.
+5. Server uses a matching provider only through its verified, allowed path. If
+   no automated path is available, it preserves the decoded payload for manual
+   review instead of scraping a public website.
 6. User reviews merchant, date, total, category, vehicle, and line items.
 7. User saves the reviewed receipt as an expense.
 
@@ -168,14 +178,15 @@ Rules for the spike:
 
 - Confirm the QR payload format with real sample receipts before hard-coding
   parser assumptions.
-- Confirm whether Taxcom allows automated lookup from this app. Prefer an
-  official API or documented endpoint. Do not bypass rate limits, CAPTCHAs,
+- Treat the public Taxcom checker as a manual verification fallback until
+  Taxcom documents or grants an automated consumer integration. Its published
+  account API uses a session token and access to a cash register; it is not
+  evidence of public consumer API access. Do not bypass rate limits, CAPTCHAs,
   access controls, or terms.
 - Model receipt lookup as a provider strategy from the start. Taxcom should not
   be hard-coded as the only possible fiscal provider.
-- Evaluate `h4ckf0r0day/obscura` as a server-side Taxcom automation option only
-  if there is a verified allowed lookup path. Keep it outside browser client
-  code and do not treat it as OCR.
+- Evaluate `h4ckf0r0day/obscura` only after a provider explicitly permits the
+  automation. Keep it outside browser client code and do not treat it as OCR.
 - Treat imported receipt data as untrusted until the user reviews it.
 
 ## Security Notes
@@ -236,6 +247,11 @@ does not exist.
 - Resolved on 2026-07-19: receipt lookup should support multiple fiscal receipt
   providers, not only Taxcom.
 - Resolved on 2026-07-19: the first release is RU-only for locale and currency.
+- Verified on 2026-07-19: Taxcom's public checker is limited to receipts sent
+  through Taxcom and accepts FPD, exact amount, and optional date. It is a
+  manual verification fallback, not a confirmed automated provider.
+- Pending: income tracking is not part of the reference product or current
+  scope. Define its meaning before adding it to the MVP.
 
 ## Evidence
 
@@ -261,6 +277,9 @@ External evidence checked on 2026-07-19:
 
 - `https://apps.apple.com/ru/app/codriver-car-expense-tracker/id1565445958`
 - `https://receipt.taxcom.ru/`
+- `https://taxcom.ru/baza-znaniy/onlaynkassy-i-ofd/stati/ofd-kak-nayti-i-proverit-chek/`
+- `https://lk-ofd.taxcom.ru/ApiHelp/spisok_dokumentov_po_smene_print.html`
+- `https://lk-ofd.taxcom.ru/ApiHelp/pechat_dokumenta_v_pdf_formate.html`
 - `https://github.com/h4ckf0r0day/obscura`
 - `https://docs.astro.build/en/guides/integrations-guide/react/`
 - `https://vite-pwa-org.netlify.app/frameworks/astro`

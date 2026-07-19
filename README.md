@@ -29,8 +29,8 @@ User
   -> Astro server endpoints
   -> PostgreSQL database poizoncoded_auto
   -> Receipt provider interface
-  -> Taxcom first, more providers later
-  -> Optional server-side Obscura spike
+  -> Taxcom manual verification candidate
+  -> Automated provider to be selected after a documented integration check
 ```
 
 > Current state: planning only. There is no runnable app scaffold yet.
@@ -74,6 +74,10 @@ Verified on 2026-07-19:
 | Receipts | QR scan plus reviewed import |
 | Export | CSV or JSON user backup |
 
+Income tracking is not in the current MVP. The Codriver reference does not
+describe it, and a fiscal receipt's `Income` type belongs to the seller's
+transaction rather than the user's finances.
+
 Deferred for the first release:
 
 | Deferred Item | Notes |
@@ -95,16 +99,18 @@ Deferred for the first release:
 | Database | PostgreSQL |
 | Persistence | TypeORM migrations unless evidence changes |
 | Receipt lookup | Server-side provider interface |
-| First provider | Taxcom candidate via `receipt.taxcom.ru` |
-| Obscura | Optional server-side automation spike |
+| Taxcom | Manual verification candidate via `receipt.taxcom.ru` |
+| First automated provider | To be selected after an allowed API check |
+| Obscura | Not in MVP; evaluate only for permitted automation |
 
 ## Receipt Import
 
 Receipt lookup must start with a spike. The app should decode QR payloads in the
 browser, validate and store pending receipt rows on the server, then route
-lookup through a provider interface. Taxcom is the first known provider
-candidate via `https://receipt.taxcom.ru/`, but the implementation must verify
-an allowed lookup path.
+lookup through a provider interface. Taxcom's public checker accepts an FPD,
+exact amount, and optional date for receipts sent through Taxcom; treat it as a
+manual verification fallback, not an assumed automated import API. The first
+automated provider must offer a documented, allowed integration path.
 
 Do not bypass rate limits, CAPTCHAs, access controls, or terms. Imported
 receipt data is untrusted until the user reviews it.
