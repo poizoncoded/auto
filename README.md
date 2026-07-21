@@ -1,166 +1,195 @@
 # Auto Spendings
 
-![Auto Spendings planning cover](public/image.png)
+![Auto Spendings planning cover](public/bg.png)
 
-![Status: Planning](https://img.shields.io/badge/Status-Planning-111827?style=for-the-badge)
+![Status: AI Build Plan](https://img.shields.io/badge/Status-AI%20Build%20Plan-127B6E?style=for-the-badge)
+![Experience: Mobile First](https://img.shields.io/badge/Experience-Mobile%20First-16A34A?style=for-the-badge)
 ![Host: Localhost](https://img.shields.io/badge/Host-Localhost-2563EB?style=for-the-badge)
 ![Stack: Astro + React](https://img.shields.io/badge/Stack-Astro%20%2B%20React-FF5D01?style=for-the-badge)
 ![Database: PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-4169E1?style=for-the-badge)
 ![Locale: RU](https://img.shields.io/badge/Locale-RU-D52B1E?style=for-the-badge)
 
-**A planned RU-only vehicle spending PWA for multi-user expense tracking.**
+**A mobile-first, RU-only, localhost-first PWA for multi-user vehicle-spending
+records.**
 
-> Auto Spendings is inspired by
-> [Codriver - Car Expense Tracker](https://apps.apple.com/ru/app/codriver-car-expense-tracker/id1565445958),
-> but it is not a clone. The goal is a localhost-first Astro PWA with clearer
-> receipt import, multi-user boundaries, and PostgreSQL persistence.
+Auto Spendings is inspired by
+[Codriver - Car Expense Tracker](https://apps.apple.com/ru/app/codriver-car-expense-tracker/id1565445958),
+but it is not a clone. The target product is a compact mobile-first web app
+for vehicle costs, Russian RUB formatting, PostgreSQL persistence, fiscal QR
+review, exports, and safe local deployment.
 
-One workspace gives the app plan, local PoizonCoded agent guidance, and the
-first implementation constraints: localhost runtime, database
-`poizoncoded_auto`, RU formatting, six-digit PIN privacy locks, and fiscal
-receipt lookup through provider integrations.
+## Development Principle
+
+This project is built by AI-driven development only. Humans write and approve
+intent, constraints, task flow, and review feedback; implementation changes are
+generated and verified by AI agents. No hand-coded manual implementation edits
+are part of the delivery workflow.
+
+This root checkout is the source of truth. Build the application here from
+`plans/` and `tasks/` only; do not treat any local alternate checkout or
+previous app snapshot as a product reference.
+
+The target must be reproducible by a fresh AI agent from the committed plans
+and executable task flow. If a requirement is missing from those files, update
+the plan or task first, then generate the implementation from that updated
+source.
 
 ```text
-Auto Spendings localhost architecture
+Auto Spendings target architecture
 
-User
+Mobile-first user
   -> Astro PWA shell
-  -> React islands for PIN, forms, charts, and QR scanner
+  -> React workspaces for PIN, vehicles, spending, receipts, charts, exports
   -> Astro server endpoints
+  -> TypeORM data mapper with EntitySchema metadata
   -> PostgreSQL database poizoncoded_auto
   -> Receipt provider interface
-  -> Taxcom manual verification candidate
-  -> Automated provider to be selected after a documented integration check
+  -> Manual receipt review before expense creation
+  -> Future automated provider only after documented permission
 ```
-
-> Current state: planning only. There is no runnable app scaffold yet.
-
-## Use This Repo
-
-There are two useful paths, depending on whether you are reading the plan or
-starting implementation.
-
-| Path | Plan The App | Build The App |
-| --- | --- | --- |
-| Goal | Keep decisions current | Create the MVP |
-| Source | `plans/auto-spendings.md` | Future app files |
-| Runtime | Proposed localhost target | Local PostgreSQL |
-| First check | README and plan agree | Build and test |
 
 ## Current State
 
-Verified on 2026-07-19:
+Verified on 2026-07-21:
 
 | Area | Status |
 | --- | --- |
-| App scaffold | Missing |
+| Product direction | Mobile-first AI-driven webapp |
+| Source of truth | Root checkout |
+| App scaffold | Not created in root yet |
 | Package metadata | No root `package.json` yet |
-| Source tree | No `src/` yet |
-| Database | Proposed PostgreSQL `poizoncoded_auto` |
-| Hosting | Localhost for now |
-| Agent context | Present under `.codex/` and `.claude/` |
-| Cover image | `public/image.png` from `poizoncoded/skills` |
+| Source tree | No root `src/` yet |
+| Database | Planned PostgreSQL `poizoncoded_auto` |
+| README visual | `public/bg.png` |
+| Install guide | `INSTALL.md` |
+| Deployment plan | `plans/auto-spendings-deploy.md` |
+| Task flow | `tasks/` |
+| Agent harness | Ruflo through `npx -y ruflo@latest mcp start` |
+| Agent context | Hidden local `.codex/` and `.claude/` assets exist |
 
-## MVP Direction
+## Mobile-First Requirements
+
+| Surface | Requirement |
+| --- | --- |
+| Primary viewport | Design first for 390px mobile width |
+| Navigation | Thumb-friendly, no dense desktop-only sidebars |
+| Forms | Fast entry for fuel, charging, expenses, vehicles, and receipts |
+| Scanner | Browser QR scanning must work from a phone camera flow |
+| Dashboard | Compact totals, trends, category split, and efficiency cards |
+| Desktop | Responsive enhancement after the mobile flow works |
+
+## MVP Behavior
+
+The AI-built MVP should include:
 
 | Capability | First Release Behavior |
 | --- | --- |
-| Users | Multi-user data ownership |
-| Privacy lock | Per-user six-digit PIN gate |
-| Locale | RU-only formatting |
-| Vehicles | CRUD with fuel or energy units |
-| Spending | Expense, fuel, and charging entries |
-| Dashboard | Totals, trends, category split, and efficiency |
-| Receipts | QR scan plus reviewed import |
-| Export | CSV or JSON user backup |
+| Users | User registration, login, opaque sessions, and user-owned data boundaries |
+| Privacy lock | Six-digit PIN setup, unlock, lock, and authenticated PIN change |
+| Vehicles | CRUD with type, fuel or energy unit, odometer unit, and RUB default |
+| Categories | User-owned expense categories with icon, color, sort order, and type |
+| Spending | Expense CRUD with fuel and charging details, odometer, cost, and notes |
+| Dashboard | Totals, monthly trend, category split, distance, and efficiency metrics |
+| Receipts | Browser QR scan, fiscal payload parsing, pending review, expense save |
+| Export | User-owned CSV and JSON export endpoints |
+| Offline | Static offline fallback plus device-local queue for new expenses |
 
-Income tracking is not in the current MVP. The Codriver reference does not
-describe it, and a fiscal receipt's `Income` type belongs to the seller's
-transaction rather than the user's finances.
+Use TypeORM `EntitySchema` targets instead of decorators, so the app has no
+direct `reflect-metadata` dependency, import, or TypeScript decorator metadata
+flags. TypeORM may still install `reflect-metadata` transitively in its own
+dependency tree.
 
-Deferred for the first release:
-
-| Deferred Item | Notes |
-| --- | --- |
-| Telegram bot | Out of MVP scope |
-| Subscriptions | No payment flow yet |
-| Sync | No cross-device sync yet |
-| Widgets | Only normal PWA installability |
-| Production hosting | Defer until localhost MVP works |
-
-## Planned Stack
-
-| Layer | Decision |
-| --- | --- |
-| Frontend | Astro with React islands |
-| App structure | Astro routes plus Feature-Sliced Design |
-| PWA | Installable shell with offline-first viewing |
-| Runtime | TypeScript |
-| Database | PostgreSQL |
-| Persistence | TypeORM migrations unless evidence changes |
-| Receipt lookup | Server-side provider interface |
-| Taxcom | Manual verification candidate via `receipt.taxcom.ru` |
-| First automated provider | To be selected after an allowed API check |
-| Obscura | Not in MVP; evaluate only for permitted automation |
+Income tracking, delivery revenue, reimbursements, Telegram, subscriptions,
+cross-device sync, home-screen widgets, and automatic fiscal-provider lookup
+are outside this MVP.
 
 ## Receipt Import
 
-Receipt lookup must start with a spike. The app should decode QR payloads in the
-browser, validate and store pending receipt rows on the server, then route
-lookup through a provider interface. Taxcom's public checker accepts an FPD,
-exact amount, and optional date for receipts sent through Taxcom; treat it as a
-manual verification fallback, not an assumed automated import API. The first
-automated provider must offer a documented, allowed integration path.
+Receipt lookup remains the riskiest external integration. The app should decode
+QR payloads with `@zxing/browser`, validate and store pending receipt rows on
+the server, and create expenses only after user review.
 
-Do not bypass rate limits, CAPTCHAs, access controls, or terms. Imported
-receipt data is untrusted until the user reviews it.
+Taxcom remains a manual verification candidate through `receipt.taxcom.ru`.
+The app must not scrape Taxcom or any fiscal provider, bypass rate limits,
+CAPTCHAs, access controls, or terms. Automated lookup should be added only
+after a provider documents or grants an allowed integration path.
+
+Imported receipt data is untrusted until the user reviews it.
 
 ## Security
 
-A six-digit PIN is a privacy lock, not full authentication. Because the first
-release is multi-user, the app must also include real server-side session
-boundaries before exposing personal spending data.
+A six-digit PIN is a privacy lock, not full authentication. The MVP must hash
+PINs with a slow password-hashing algorithm, store opaque session-token hashes
+server-side, and scope every personal-data endpoint to the current user.
 
-Never commit database URLs, bot tokens, Obscura credentials, receipt samples, or
-private spending data.
+Never commit `.env`, database URLs, bot tokens, Obscura credentials, receipt
+samples, database dumps, or private spending data.
 
-## Development
+## Install
 
-There are no app commands yet because the scaffold has not been created.
+Use [INSTALL.md](INSTALL.md) before generating or running the app. Targets
+checked on 2026-07-21.
 
-Expected checks once the scaffold exists:
+This is a hard gate. Until it passes, the only allowed work is installing or
+upgrading prerequisites, starting or creating the local PostgreSQL database, and
+updating planning docs. Do not start the build flow, Task 2, app scaffolding,
+package installs, Docker image work, migrations, deployment, or tests until the
+readiness checks below pass.
+
+| Tool | Required For |
+| --- | --- |
+| Node.js 24+ | npm scripts, Astro, React, tests, and migration runners |
+| Docker with Compose v5+ | local deployment checks and production-like stack |
+| Ruflo through npx | AI agent orchestration, memory, hooks, and swarm tools |
+| PostgreSQL 18 Docker container | local database and migration verification |
+
+Readiness check:
+
+```bash
+node --version
+docker --version
+docker compose version
+npm view ruflo version
+docker exec auto-spendings-postgres psql --version
+docker port auto-spendings-postgres 5432/tcp
+docker exec auto-spendings-postgres pg_isready -U auto_spendings -d poizoncoded_auto
+docker exec auto-spendings-postgres psql -U auto_spendings -d poizoncoded_auto -c 'select current_database();'
+```
+
+Expected: PostgreSQL accepts connections on `localhost:5432`, and
+`poizoncoded_auto` exists. A PostgreSQL client alone is not enough; the default
+path runs the real PostgreSQL server through Docker.
+
+## Build Flow
+
+Start this section only after the prerequisite and local database readiness
+gate passes.
+
+Use the task flow as the execution path. A reproducible build starts from the
+root `plans/` and `tasks/` files:
+
+```bash
+ls plans tasks
+```
+
+Expected app checks after the AI-generated scaffold exists:
 
 ```bash
 npm run build
 npm run test
+npm run test:integration
 npm run lint
 npm run typecheck
 git diff --check
 ```
 
-The MVP should also verify migration up/down against PostgreSQL database
-`poizoncoded_auto`, browser behavior on desktop and mobile localhost viewports,
-PWA installability, offline behavior, QR import, and RU-only locale formatting.
-
 ## Documentation
 
 | Document | When To Read It |
 | --- | --- |
-| `README.md` | Human-facing overview |
+| `README.md` | Current product charter and AI-development rules |
+| `INSTALL.md` | Simplest prerequisite and local database setup |
+| `plans/auto-spendings.md` | Verified product plan, implementation status, and remaining risks |
+| `plans/auto-spendings-deploy.md` | Docker deployment and migration plan |
+| `tasks/README.md` | Executable AI-driven task flow |
 | `AGENTS.md` | Agent-facing repository guidance |
-| `plans/auto-spendings.md` | Verified build plan and risks |
-
-## Local Agent Context
-
-This workspace includes PoizonCoded agent guidance under `.codex/` and
-`.claude/`.
-
-| Skill | Use |
-| --- | --- |
-| `feature-sliced-design` | Astro/FSD layout and imports |
-| `react-best-practices` | React islands, scanner UI, forms, and charts |
-| `node` | TypeScript runtime, environment, errors, and tests |
-| `typeorm` | Entities, migrations, repositories, and transactions |
-| `nest` or `fastify` | Backend split if Astro endpoints are not enough |
-| `browser` | Browser checks for scanner and PWA flows |
-| `verification-quality` | Pre-completion evidence |
