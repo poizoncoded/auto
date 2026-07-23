@@ -1,0 +1,88 @@
+---
+import type { WorkspaceTab } from "@/_pages/home/model/workspace-route";
+import { workspaceRouteByTab } from "@/_pages/home/model/workspace-route";
+import HomePage from "@/_pages/home";
+import "@/app/styles/global.css";
+
+interface Props {
+  initialTab: WorkspaceTab;
+}
+
+const { initialTab } = Astro.props;
+const isDevelopment = import.meta.env.DEV;
+const initialReceiptCamera =
+  isDevelopment && Astro.url.searchParams.get("camera") === "1";
+const title = `${workspaceRouteByTab[initialTab].label} | Auto Spendings`;
+---
+
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#18312D" />
+    <meta name="description" content="Локальный учёт расходов на транспорт" />
+    <link rel="icon" href="/pwa-192.png" type="image/png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="/pwa-192.png" />
+    <title>{title}</title>
+    {
+      isDevelopment ? (
+        <script is:inline>
+          if ("serviceWorker" in navigator) {
+            const cleanupStateKey = "autoSpendingsDevWorkerCleaned";
+
+            const cleanupDevWorker = async () => {
+              const currentState =
+                history.state && typeof history.state === "object" ? history.state : {};
+              const cleanupAlreadyRan = Boolean(currentState[cleanupStateKey]);
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              const hadController = Boolean(navigator.serviceWorker.controller);
+
+              await Promise.all(registrations.map((registration) => registration.unregister()));
+
+              if ("caches" in window) {
+                const cacheNames = await caches.keys();
+                await Promise.all(
+                  cacheNames
+                    .filter((cacheName) => cacheName.startsWith("auto-spendings-"))
+                    .map((cacheName) => caches.delete(cacheName))
+                );
+              }
+
+              if ((registrations.length > 0 || hadController) && !cleanupAlreadyRan) {
+                history.replaceState({ ...currentState, [cleanupStateKey]: true }, "");
+                window.location.reload();
+                return;
+              }
+
+              if (cleanupAlreadyRan) {
+                const nextState = { ...currentState };
+                delete nextState[cleanupStateKey];
+                history.replaceState(nextState, "");
+              }
+            };
+
+            cleanupDevWorker().catch(() => {});
+          }
+        </script>
+      ) : null
+    }
+  </head>
+  <body>
+    <HomePage
+      client:load
+      initialReceiptCamera={initialReceiptCamera}
+      initialTab={initialTab}
+    />
+    {
+      !isDevelopment ? (
+        <script is:inline>
+          if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => navigator.serviceWorker.register("/service-worker.js"));
+          }
+        </script>
+      ) : null
+    }
+  </body>
+</html>

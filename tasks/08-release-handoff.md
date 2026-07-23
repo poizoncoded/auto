@@ -1,4 +1,4 @@
-# Task 7: Release Handoff
+# Task 8: Release Handoff
 
 **Source:** `plans/auto-spendings.md` sections "Acceptance Checks",
 "Resolved Decisions", and "Evidence".
@@ -16,7 +16,7 @@ concise handoff that separates shipped MVP behavior from pending provider work.
 
 **Interfaces:**
 
-- Consumes: Tasks 1-6 passing results.
+- Consumes: Tasks 1-7 passing results.
 - Produces: final documented evidence for merge, review, deployment, or the next
   provider spike.
 

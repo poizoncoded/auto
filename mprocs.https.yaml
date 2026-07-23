@@ -1,0 +1,7 @@
+procs:
+  fe:
+    cmd: ["npm", "run", "dev:fe"]
+  be:
+    cmd: ["npm", "run", "dev:be"]
+  https:
+    cmd: ["npm", "run", "dev:tunnel"]

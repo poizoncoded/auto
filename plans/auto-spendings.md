@@ -1,7 +1,7 @@
 # Auto Spendings Build Plan
 
-Status: proposed mobile-first AI-driven webapp; root checkout contains planning
-docs, deployment plan, task flow, README visual asset, and agent guidance.
+Status: AI-generated mobile-first MVP present; backend persistence and the
+daily-use refactor were implemented and verified complete on 2026-07-21.
 Verified on: 2026-07-21.
 Document type: rough plan under `plans/`.
 
@@ -30,11 +30,12 @@ Verified baseline features from the listing on 2026-07-21:
 
 Verified in this workspace on 2026-07-21:
 
-- The root checkout has no application scaffold yet: no root `package.json`,
-  no `src/`, no Astro config, no Docker Compose file, and no committed tests.
+- The root checkout now contains the imported MVP scaffold: `package.json`,
+  `package-lock.json`, `astro.config.mjs`, `docker-compose.yml`, `src/`,
+  `scripts/`, `tests/`, and PWA assets under `public/`.
 - `INSTALL.md` now carries the simple prerequisite guide: install host Node.js
   and Docker, verify Ruflo package access through npm, then run PostgreSQL 18
-  as a local Docker container.
+  through the checked-in Docker Compose service.
 - Product implementation is intentionally reproducible from `plans/` and
   `tasks/` only. `README.md` summarizes the contract, and agent config files
   constrain how the AI workers operate.
@@ -91,12 +92,13 @@ Required product decisions:
   queue for unsent new expense entries. Authenticated API responses are not
   cached by the service worker.
 - Database: PostgreSQL database named `poizoncoded_auto`.
-- Local database readiness: the default local install runs PostgreSQL 18 through
-  Docker container `auto-spendings-postgres`; Task 1 must prove a PostgreSQL 18
-  server is accepting connections and the `poizoncoded_auto` database exists.
+- Local database readiness: the default local install runs PostgreSQL 18
+  through Docker Compose container `auto-spendings-postgres`; Task 1 must prove
+  a PostgreSQL 18 server is accepting connections and the `poizoncoded_auto`
+  database exists.
 - Hosting target: localhost for the first MVP.
 - Runtime dependency targets checked on 2026-07-21: Node.js 24+, Astro 7.1.3,
-  React 19.2.7, TypeScript 7.0.2, TypeORM 1.1.0, PostgreSQL 18, Docker Engine
+  React 19.2.7, TypeScript 5.9.3, TypeORM 1.1.0, PostgreSQL 18, Docker Engine
   29+, Docker Compose v5+, Vitest 4.1.10, and ESLint 10.7.0.
 - Users: multi-user first release with isolated user-owned vehicle, category,
   expense, and receipt data.
@@ -202,6 +204,107 @@ Initial database tables:
 - `receipt_providers`: provider key, display name, supported QR fields, enabled
   state, and integration metadata.
 
+## Approved Persistence And Daily-Use Refactor
+
+Status: implemented and verified complete on 2026-07-21.
+
+The next refactor must make the application useful for daily entry while
+keeping PostgreSQL as the source of truth for all durable user data. It is a
+hardening of the existing API and database-backed MVP, not a replacement with a
+generic client-state store.
+
+### Persistence Boundary
+
+- Vehicles, categories, expenses, fuel or charging details, receipts, profile
+  settings, and any future durable preferences must be saved through typed
+  server endpoints into PostgreSQL.
+- Every personal-data endpoint must resolve the authenticated user on the
+  server and scope reads and writes by that user. Browser-supplied user IDs must
+  never define ownership.
+- The browser must not keep a second durable copy of server data. `localStorage`
+  is allowed only for the device lock marker and the validated per-user queue of
+  unsent new expenses.
+- The offline expense queue must synchronize through the same idempotent create
+  endpoint as an online expense. A queued record becomes durable only after the
+  server accepts it.
+- Failed non-expense writes stay as in-memory drafts with a visible retry path.
+  The UI must not present them as saved.
+- Do not add a generic endpoint that stores the entire application state or an
+  unvalidated JSON settings blob. New durable settings require a typed contract
+  and an explicit migration.
+
+### Request And Data Flow
+
+Use this flow for every persistent mutation:
+
+```text
+React form
+  -> typed API request
+  -> Zod request validation
+  -> authenticated user boundary
+  -> domain service
+  -> TypeORM transaction when multiple rows change
+  -> PostgreSQL
+  -> canonical saved record in the response
+  -> local UI update and bootstrap reconciliation
+```
+
+Keep separate resource endpoints for vehicles, categories, expenses, receipts,
+and profile settings. Successful create and update responses must return the
+canonical saved record. `/api/bootstrap` remains the authenticated
+reconciliation snapshot for the current profile.
+
+### Daily Expense Flow
+
+- Unlocking opens the dashboard.
+- A fixed mobile add action must be reachable from every workspace and open a
+  compact expense editor.
+- The primary fields are amount, category, vehicle, and date.
+- Date defaults to today. Category and vehicle default from the newest expense
+  returned by the backend, so repeated entry does not require a separate client
+  preference store.
+- Merchant, note, fuel or charging kind, odometer, quantity, and unit price are
+  optional details and should not slow down the common entry path.
+- A successful save closes the editor, shows clear confirmation, and updates
+  the journal and dashboard from canonical backend data.
+- Vehicle, category, and receipt forms should open only when requested instead
+  of permanently occupying the mobile workspace.
+- Empty states must offer the next useful action. Failed requests must preserve
+  entered values and offer retry.
+
+### Refactor Boundaries
+
+- Reduce `src/_pages/home/ui/HomePage.tsx` to the application shell for session,
+  bootstrap state, navigation, notifications, and the global expense editor.
+- Move authentication, bootstrap loading, offline synchronization, and mutation
+  state into focused page-model modules with explicit loading, ready, locked,
+  and error states.
+- Keep dashboard, expenses, receipts, vehicles, and settings UI local to the
+  page slice unless a component has multiple real consumers.
+- Keep `src/shared/api/` limited to transport, route contracts, and shared API
+  record types. Keep business workflows in the owning page or server domain.
+- Split `src/server/services/finance.ts` into focused bootstrap, vehicle,
+  category, expense, and receipt services while preserving the endpoint
+  contracts and ownership checks.
+- Keep TypeORM on explicit `EntitySchema` metadata and migrations. Do not add
+  decorators, decorator metadata flags, or a direct `reflect-metadata` import.
+- Do not add speculative FSD layers or move files only for cosmetic symmetry.
+
+### Failure And Verification Behavior
+
+- Invalid input must produce actionable field-level feedback without clearing
+  the form.
+- An unauthenticated response returns the user to the unlock flow without
+  exposing cached personal data.
+- Expense and fuel or charging writes, plus receipt review and expense
+  creation, must remain transactional.
+- Reloading the browser or restarting Astro must not lose server-saved data.
+- One profile must not be able to read, mutate, export, or delete another
+  profile's data.
+- Browser verification must cover unlock, quick expense creation, editing,
+  deletion, receipt review, navigation, and offline queue synchronization at a
+  390px mobile viewport.
+
 ## QR And Taxcom Flow
 
 Automated receipt lookup remains the riskiest unknown. The MVP should handle
@@ -209,9 +312,22 @@ safe QR decoding and manual review without attempting provider scraping.
 
 Target flow:
 
-1. User opens the scanner React island.
-2. Browser camera scans the receipt QR code.
-3. Client decodes the QR payload.
+1. User opens `Добавить чек` and chooses Camera, Photo, or QR string. Camera is
+   the first option.
+2. Camera starts an in-app `getUserMedia` video scanner on any trusted HTTPS
+   origin, including development through `npm run dev:https`. Plain LAN HTTP
+   cannot access `getUserMedia`; it must show an HTTPS-required state and, when
+   the development tunnel is running, a direct `Открыть HTTPS-камеру` action
+   that issues a one-minute, single-use authenticated handoff. The HTTPS
+   endpoint consumes that handoff, creates a Secure origin-scoped session, and
+   opens the live Camera step directly without putting the long-lived session
+   token in the URL. It must not present a file input as a camera. Photo remains
+   a separate native media-library input.
+3. Client decodes the QR payload with `jsqr` and advances to pending review.
+   Photo decoding must cover full screenshots with surrounding text, compact
+   codes, rotation, and the ФНС minimum 40% contrast requirement. Tests must
+   use an independent QR encoder and assert the parsed fiscal fields, not only
+   that an arbitrary string was recovered.
 4. Server validates the decoded fields and stores a pending `receipts` row.
 5. The server preserves the decoded payload for manual review. A future
    provider may enrich it only through a verified, allowed integration path.
@@ -221,6 +337,14 @@ Target flow:
 
 Rules for the provider spike:
 
+- Keep camera, photo-library, and manual QR-string sources available. Camera
+  means a live video scanner. Plain LAN HTTP must not attempt `getUserMedia` or
+  relabel a file input as Camera. The opt-in trusted HTTPS workflow must publish
+  its rotating Quick Tunnel URL to a development-only endpoint so the HTTP UI
+  can offer a direct handoff for live-camera verification. Preserve the public
+  proxy host, reconstruct the effective origin from `x-forwarded-proto`, and
+  send bodyless client mutations as explicit JSON so Astro's origin protection
+  works behind TLS termination.
 - Confirm the QR payload format with real sample receipts before hard-coding
   parser assumptions.
 - Treat the public Taxcom checker as a manual verification fallback until
@@ -265,8 +389,8 @@ Use the smallest relevant skill set per phase:
 
 ## Acceptance Checks
 
-These checks are future checks. They cannot pass until the AI-generated app
-scaffold exists in the root checkout.
+The root scaffold exists. Run these checks against the current implementation
+and rerun them after the approved persistence and daily-use refactor.
 
 Before calling the MVP complete:
 
@@ -279,9 +403,20 @@ Before calling the MVP complete:
 - `npm run typecheck`
 - Migration up/down against PostgreSQL database `poizoncoded_auto`.
 - Browser checks for desktop and mobile viewports on localhost, including
-  390px mobile width.
+  390px mobile width, plus a trusted HTTPS check proving the receipt flow calls
+  `getUserMedia` and renders the live camera surface.
+- Browser check proving the global add action is reachable from every workspace
+  and a repeated expense can reuse the latest backend category and vehicle.
+- Persistence check proving vehicle, category, expense, receipt-review, and PIN
+  writes survive a browser reload and Astro restart.
+- Ownership tests for every personal-data read, create, update, delete, and
+  export endpoint.
+- Storage scan proving durable domain records are not written to browser
+  storage; only the local lock marker and unsent expense queue are allowed.
 - PWA installability and offline behavior check.
 - QR import test with synthetic and user-approved sample receipt payloads.
+- Browser `File` upload check using a screenshot-shaped PNG and an exact
+  standard fiscal payload round trip.
 - RU-only locale check: Russian date/number formatting and RUB currency output.
 - App-level scan proving no direct `reflect-metadata` import, decorator flags,
   or TypeORM decorators.
@@ -303,6 +438,14 @@ permits that use.
   providers, not only Taxcom.
 - Resolved on 2026-07-19: the first release is RU-only for locale and currency.
 - Resolved on 2026-07-21: the app is mobile-first.
+- Resolved on 2026-07-21: PostgreSQL is the source of truth for all durable
+  profile data and future durable preferences.
+- Resolved on 2026-07-21: browser storage is limited to the device lock marker
+  and validated unsent expense queue; it is not a second application database.
+- Resolved on 2026-07-21: the daily flow opens on the dashboard and exposes a
+  global mobile expense action from every workspace.
+- Resolved on 2026-07-21: quick-entry category and vehicle defaults come from
+  the newest backend expense rather than a client-only preference.
 - Resolved on 2026-07-21: implementation must be AI-driven with no hand-coded
   manual implementation edits in the delivery workflow.
 - Resolved on 2026-07-21: the application must be reproducible from the
@@ -326,6 +469,37 @@ permits that use.
 
 Local evidence checked on 2026-07-21:
 
+- `npm run test`: 27 test files and 146 tests passed.
+- `npm run test:integration`: 7 test files and 19 PostgreSQL integration tests
+  passed, including lifecycle persistence across data-source restarts and
+  ownership isolation.
+- `npm run lint`, `npm run typecheck`, `npm run build`, and `git diff --check`
+  passed with no warnings or diagnostics.
+- Storage scan found only the guarded browser-storage adapter; the TypeORM
+  decorator and metadata scan returned no matches.
+- Browser verification at 390x844 covered unlock, global quick entry from all
+  workspaces, repeated backend-derived defaults, edit, delete, receipt review,
+  reload persistence, and navigation without horizontal overflow.
+- Offline LAN verification queued one expense, replayed exactly one successful
+  `POST /api/expenses` after reconnect, cleared the queue, and reloaded the
+  canonical amount from PostgreSQL.
+- Receipt import presented Camera, Photo, and QR string in that order. At a
+  390px trusted HTTPS browser viewport, Camera called `getUserMedia` once,
+  rendered a live 640x480 video track, and contained no file input. Plain LAN
+  HTTP made zero camera calls, showed the HTTPS requirement, discovered the
+  current Quick Tunnel, and transferred the unlocked verification profile
+  through a one-time `Открыть HTTPS-камеру` action. The HTTPS endpoint returned
+  303, set an HttpOnly Secure SameSite=Lax cookie, removed the handoff token from
+  the browser URL, and opened Camera directly. The no-mock browser check produced
+  a live 640x480 track, created and deleted a PostgreSQL-backed vehicle, and
+  logged out successfully. Photo remained the explicit native file input.
+- Uploaded-image coverage decoded a standard Russian fiscal payload from a
+  514x410 screenshot-shaped image, a compact QR, and a 90-degree rotated QR at
+  40% contrast, then asserted the parsed date, amount, FN, FD, FP, and operation
+  type. A browser `File` round trip returned the exact source payload.
+- Desktop verification at 1280x800 showed no horizontal overflow, visible
+  sidebar and header add action, and hidden mobile navigation.
+
 - `README.md`
 - `INSTALL.md`
 - `public/bg.png`
@@ -342,6 +516,11 @@ Local evidence checked on 2026-07-21:
 - `.codex/skills/feature-sliced-design/SKILL.md`
 - `.codex/skills/feature-sliced-design/references/framework-integration.md`
 - `.codex/skills/react-best-practices/SKILL.md`
+- `src/shared/api/auto.ts`
+- `src/_pages/home/model/expense-queue.ts`
+- `src/_pages/home/ui/HomePage.tsx`
+- `src/server/http/schemas.ts`
+- `src/server/services/finance.ts`
 - `.codex/skills/node/SKILL.md`
 - `.codex/skills/typeorm/SKILL.md`
 - `.codex/skills/nest/SKILL.md`

@@ -16,6 +16,16 @@ PostgreSQL connection, TypeORM `EntitySchema` metadata, and first migrations.
 - Create: `eslint.config.mjs`
 - Create: `vitest.config.ts`
 - Create: `vitest.integration.config.ts`
+- Create: `docker-compose.yml`
+- Create: `mprocs.yaml`
+- Create: `mprocs.https.yaml`
+- Create: `scripts/dev-tunnel.ts`
+- Create: `scripts/rebuild-astro.ts`
+- Create: `src/shared/lib/development-https.ts`
+- Create: `src/server/development/https-tunnel.ts`
+- Create: `src/server/development/https-camera-handoff.ts`
+- Create: `src/pages/api/development/https-url.ts`
+- Create: `src/pages/api/development/https-camera.ts`
 - Create: `src/env.ts`
 - Create: `src/server/database/data-source.ts`
 - Create: `src/server/database/entities.ts`
@@ -23,6 +33,10 @@ PostgreSQL connection, TypeORM `EntitySchema` metadata, and first migrations.
 - Create: `scripts/migrate.ts`
 - Create: `scripts/revert-migration.ts`
 - Test: `tests/integration/migrations.integration.test.ts`
+- Test: `src/server/development/https-tunnel.test.ts`
+- Test: `src/server/development/https-camera-handoff.test.ts`
+- Test: `src/server/development/dev-workflow.test.ts`
+- Test: `src/pages/api/development/https-camera.test.ts`
 
 **Interfaces:**
 
@@ -54,8 +68,8 @@ Expected: major version is `24` or newer.
 
 ```bash
 npm init -y
-npm install astro@7.1.3 @astrojs/react@6.0.1 @astrojs/node@11.0.2 react@19.2.7 react-dom@19.2.7 typeorm@1.1.0 pg@8.22.0 zod@4.4.3 @zxing/browser@0.2.1 lucide-react@1.25.0 clsx@2.1.1
-npm install --save-dev typescript@7.0.2 @astrojs/check@0.9.9 @types/node@26.1.1 @types/react@19.2.17 @types/react-dom@19.2.3 vitest@4.1.10 eslint@10.7.0 @eslint/js@10.0.1 typescript-eslint@8.65.0 mprocs@0.9.6
+npm install astro@7.1.3 @astrojs/react@6.0.1 @astrojs/node@11.0.2 react@19.2.7 react-dom@19.2.7 typeorm@1.1.0 pg@8.22.0 zod@4.4.3 jsqr@1.4.0 lucide-react@1.25.0
+npm install --save-dev typescript@5.9.3 @astrojs/check@0.9.9 @types/node@26.1.1 @types/react@19.2.17 @types/react-dom@19.2.3 vitest@4.1.10 eslint@10.7.0 @eslint/js@10.0.1 typescript-eslint@8.65.0 eslint-plugin-react-hooks@7.1.1 vite@8.1.5 mprocs@0.9.6 yaml@2.9.0 qrcode@1.5.4 @types/qrcode@1.5.6
 ```
 
 Expected: `package.json` and `package-lock.json` exist and the project uses
@@ -68,7 +82,16 @@ Add these scripts to `package.json`:
 ```json
 {
   "scripts": {
-    "dev": "astro dev --host 127.0.0.1",
+    "dev": "mprocs --config mprocs.yaml",
+    "dev:https": "mprocs --config mprocs.https.yaml",
+    "dev:tunnel": "node scripts/dev-tunnel.ts",
+    "dev:rebuild": "node scripts/rebuild-astro.ts && node ./node_modules/astro/bin/astro.mjs sync",
+    "predev:fe": "npm run dev:rebuild",
+    "dev:fe": "node --env-file-if-exists=.env ./node_modules/astro/bin/astro.mjs dev --host 0.0.0.0 --port 4321 --force",
+    "dev:lan": "npm run dev:fe",
+    "predev:lan:alt": "npm run dev:rebuild",
+    "dev:lan:alt": "node --env-file-if-exists=.env ./node_modules/astro/bin/astro.mjs dev --host 0.0.0.0 --port 4322 --force",
+    "dev:be": "npm run db:up && npm run db:migrate && docker compose logs --follow --tail 50 db",
     "build": "astro build",
     "start": "node ./dist/server/entry.mjs",
     "test": "vitest run",
@@ -88,10 +111,29 @@ Expected: `npm run` lists every script above.
 Create the runtime config files with the Node adapter, React integration, strict
 TypeScript settings, Vitest configs, ESLint flat config, and a committed
 `.env.example` containing only the safe local `DATABASE_URL` from
-`INSTALL.md`.
+`INSTALL.md`. Keep ordinary `mprocs.yaml` limited to frontend and backend. Add
+an opt-in `mprocs.https.yaml` that also starts `scripts/dev-tunnel.ts`. The
+runner must recreate the Docker Compose `https` profile using pinned
+`cloudflare/cloudflared:2026.7.0`, forward to the frontend with
+the public tunnel host intact, validate the generated `*.trycloudflare.com`
+origin, publish it to temporary development state, and remove that state on
+exit. Allow only `.trycloudflare.com` as the additional Vite development host.
+Reconstruct API origin checks and Secure cookies from `x-forwarded-proto`. Add a
+development-only, no-store `/api/development/https-url` endpoint that reads the
+validated origin and returns 404 in production.
+
+Add `/api/development/https-camera` with an authenticated POST that issues a
+one-minute, single-use opaque handoff and an HTTPS GET that consumes it, creates
+a new origin-scoped session, and redirects to `/receipts?camera=1`. Never put a
+long-lived session token in a URL. Bodyless browser mutations must still send an
+explicit empty JSON object so Astro's cross-site form protection remains valid
+behind TLS termination.
 
 Expected: `astro.config.mjs`, `tsconfig.json`, `eslint.config.mjs`,
-`vitest.config.ts`, `vitest.integration.config.ts`, and `.env.example` exist.
+`vitest.config.ts`, `vitest.integration.config.ts`, `.env.example`, both
+`mprocs` configs, and the Docker Compose services exist. `npm run dev:https`
+prints a temporary trusted `https://*.trycloudflare.com` URL and publishes it
+to the HTTP UI for one-tap mobile camera handoff without exposing PostgreSQL.
 
 - [ ] **Step 6: Create decorator-free TypeORM metadata**
 
@@ -140,5 +182,5 @@ Expected: typecheck passes and migration integration coverage passes.
 - [ ] **Step 11: Completion gate**
 
 The task is complete when the root runtime exists, schema metadata is
-decorator-free, migrations run through scripts, and migration integration tests
-pass.
+decorator-free, migrations run through scripts, migration integration tests
+pass, and trusted HTTPS development is reproducible through Docker.

@@ -194,7 +194,7 @@ services:
       timeout: 5s
       retries: 20
     volumes:
-      - auto_spendings_postgres_data:/var/lib/postgresql/data
+      - auto_spendings_postgres_data:/var/lib/postgresql
 
   migrate:
     image: "${APP_IMAGE:?Set APP_IMAGE}"

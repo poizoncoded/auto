@@ -12,8 +12,8 @@ migrations, or deploy the app.
 - Node.js `24` or newer.
 - Docker Engine `29` or newer with Docker Compose `v5` or newer.
 - Ruflo resolved through `npx ruflo@latest` for agent orchestration.
-- PostgreSQL `18` as a local Docker container named
-  `auto-spendings-postgres`.
+- PostgreSQL `18` through the checked-in `docker-compose.yml` service, running
+  as local Docker container `auto-spendings-postgres`.
 - Database `poizoncoded_auto`.
 
 No host PostgreSQL install is required for the default path.
@@ -50,23 +50,21 @@ a new shell:
 sudo usermod -aG docker "$USER"
 ```
 
-## 2. Start PostgreSQL
+## 2. Create Local Env And Start PostgreSQL
 
-macOS or Linux:
+From the repository root on macOS, Windows, or Linux:
 
 ```bash
-docker start auto-spendings-postgres 2>/dev/null || docker run --detach --name auto-spendings-postgres --publish 5432:5432 --env POSTGRES_USER=auto_spendings --env POSTGRES_PASSWORD=auto_spendings_local --env POSTGRES_DB=poizoncoded_auto --volume auto-spendings-postgres:/var/lib/postgresql/data postgres:18-alpine
+node -e "require('node:fs').copyFileSync('.env.example', '.env')"
 ```
 
-Windows with PowerShell:
-
-```powershell
-docker start auto-spendings-postgres 2>$null; if ($LASTEXITCODE -ne 0) { docker run --detach --name auto-spendings-postgres --publish 5432:5432 --env POSTGRES_USER=auto_spendings --env POSTGRES_PASSWORD=auto_spendings_local --env POSTGRES_DB=poizoncoded_auto --volume auto-spendings-postgres:/var/lib/postgresql/data postgres:18-alpine }
+```bash
+docker compose up --detach --wait db
 ```
 
-If port `5432` is already used by another PostgreSQL server, stop that server
-before using this default guide. The reproducible Task 1 path expects the
-Docker container above.
+The database is published only on `127.0.0.1:5433`, not on the LAN. Port `5433`
+keeps the Docker database separate from any host PostgreSQL already using
+`5432`.
 
 ## 3. Verify Readiness
 
@@ -88,10 +86,20 @@ Expected:
 - Docker Compose prints `v5` or newer.
 - npm prints a Ruflo package version.
 - PostgreSQL prints `18`.
-- Docker publishes PostgreSQL port `5432`.
+- Docker publishes PostgreSQL on `127.0.0.1:5433`.
 - The database query prints `poizoncoded_auto`.
 
 Only after these checks pass may an AI agent continue to Task 2.
+
+If PostgreSQL answers with `password authentication failed for user
+"auto_spendings"`, the Docker volume was probably initialized with older
+credentials. For disposable local data, reset only this app database volume:
+
+```bash
+docker compose down
+docker volume rm auto_auto_spendings_postgres_data
+docker compose up --detach --wait db
+```
 
 Optional Ruflo cache warm-up:
 
@@ -108,10 +116,56 @@ and retry.
 Use this value for local generated app configuration:
 
 ```text
-postgres://auto_spendings:auto_spendings_local@localhost:5432/poizoncoded_auto
+postgres://auto_spendings:auto_spendings_local@localhost:5433/poizoncoded_auto
 ```
 
 Do not commit `.env` files or real deployment secrets.
+
+## Mobile Preview
+
+For a real in-app camera on a phone, start the complete trusted HTTPS workflow:
+
+```bash
+npm run dev:https
+```
+
+Open the generated `https://*.trycloudflare.com/receipts` URL printed by the
+`https` process. Alternatively, open the LAN HTTP app, choose Camera, and tap
+`Открыть HTTPS-камеру`; the app discovers the current temporary address and
+uses a short-lived, single-use development handoff to keep the unlocked profile
+and open Camera directly over HTTPS. The command starts the frontend,
+PostgreSQL/migrations, and a pinned `cloudflare/cloudflared` Docker container.
+No second PIN entry, Cloudflare account, or host install is required.
+
+The generated URL is temporary and publicly reachable while the command runs.
+Use it only for development, avoid real private data, and stop the process when
+testing is complete. If the app is already running on port `4321`, start only
+the HTTPS bridge:
+
+```bash
+npm run dev:tunnel
+```
+
+For layout testing without a live camera, start the Astro/Vite server on the
+LAN with `npm run dev:lan`, then open `http://<LAN-IP>:4321/dashboard`. On
+macOS, `ipconfig getifaddr en0` usually prints the Wi-Fi LAN IP. On Linux, use
+`hostname -I`. On Windows, use `ipconfig` and copy the active Wi-Fi IPv4
+address.
+
+If port `4321` is already occupied, use:
+
+```bash
+npm run dev:lan:alt
+```
+
+Then open `http://<LAN-IP>:4322/dashboard`.
+
+Dev startup runs `npm run dev:rebuild`, clearing generated Astro/Vite state and
+running `astro sync` before Vite binds to the network. Plain LAN HTTP cannot
+access browser `getUserMedia`; Camera reports that HTTPS is required and links
+to the active development tunnel when it is running. The link works only once,
+expires after one minute, and never exposes the app session token. Photo and
+manual QR-string import remain available there.
 
 ## References Checked
 
@@ -120,5 +174,7 @@ Do not commit `.env` files or real deployment secrets.
 - Docker Linux convenience script guidance: `https://docs.docker.com/engine/install/ubuntu/`
 - Docker Compose install overview: `https://docs.docker.com/compose/install/`
 - PostgreSQL Docker Official Image: `https://hub.docker.com/_/postgres`
+- Cloudflare Quick Tunnels: `https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/`
+- MDN `getUserMedia`: `https://developer.mozilla.org/en-US/docs/Web/API/MediaDevices/getUserMedia`
 - Ruflo GitHub repository: `https://github.com/ruvnet/ruflo`
 - Ruflo install wiki: `https://github.com/ruvnet/ruflo/wiki/Installation`

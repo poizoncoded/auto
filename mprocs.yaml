@@ -1,0 +1,5 @@
+procs:
+  fe:
+    cmd: ["npm", "run", "dev:fe"]
+  be:
+    cmd: ["npm", "run", "dev:be"]

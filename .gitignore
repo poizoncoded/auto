@@ -3,18 +3,21 @@ node_modules/
 .worktrees/
 
 # Package manager output
-package-lock.json
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+pnpm-lock.yaml
+pnpm-workspace.yaml
 
 # Build, coverage, and package artifacts
+.astro/
 dist/
 coverage/
 *.tgz
 
 # Local runtime state; keep placeholder directories tracked
+ruvector.db
 .agents
 !.agents/.keep
 .swarm

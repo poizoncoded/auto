@@ -50,7 +50,8 @@ docker port auto-spendings-postgres 5432/tcp
 
 Expected: Node.js is `v24` or newer, Docker Engine is `29` or newer, Docker
 Compose is `v5` or newer, npm resolves Ruflo, the Dockerized `psql` reports
-PostgreSQL `18`, and PostgreSQL port `5432` is published from the container.
+PostgreSQL `18`, and PostgreSQL is published from the container on
+`127.0.0.1:5433`.
 
 If any command is missing or below target, stop this task before Step 3 and
 install prerequisites from `INSTALL.md`. Do not create app files, install
@@ -63,7 +64,7 @@ docker exec auto-spendings-postgres pg_isready -U auto_spendings -d poizoncoded_
 docker exec auto-spendings-postgres psql -U auto_spendings -d poizoncoded_auto -c 'select current_database();'
 ```
 
-Expected: PostgreSQL accepts connections on `localhost:5432`, and the query
+Expected: PostgreSQL accepts connections through `localhost:5433`, and the query
 prints `poizoncoded_auto`.
 
 If the server is missing or the database does not exist, stop this task before
@@ -109,8 +110,8 @@ visual, and all seven task files are present.
 find . -maxdepth 2 \( -name package.json -o -name 'astro.config.*' -o -name src -o -name docker-compose.yml \) -print
 ```
 
-Expected before Task 2: no root app scaffold files. Expected after Task 2:
-the command lists the generated scaffold files.
+Expected now: the command lists the root app scaffold files moved into this
+checkout.
 
 - [ ] **Step 8: Confirm privacy and provider constraints**
 

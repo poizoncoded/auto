@@ -56,10 +56,10 @@ Verified on 2026-07-21:
 | --- | --- |
 | Product direction | Mobile-first AI-driven webapp |
 | Source of truth | Root checkout |
-| App scaffold | Not created in root yet |
-| Package metadata | No root `package.json` yet |
-| Source tree | No root `src/` yet |
-| Database | Planned PostgreSQL `poizoncoded_auto` |
+| App scaffold | Present in root |
+| Package metadata | `package.json` and `package-lock.json` |
+| Source tree | `src/` |
+| Database | PostgreSQL `poizoncoded_auto` through Docker Compose |
 | README visual | `public/bg.png` |
 | Install guide | `INSTALL.md` |
 | Deployment plan | `plans/auto-spendings-deploy.md` |
@@ -105,9 +105,17 @@ are outside this MVP.
 
 ## Receipt Import
 
-Receipt lookup remains the riskiest external integration. The app should decode
-QR payloads with `@zxing/browser`, validate and store pending receipt rows on
-the server, and create expenses only after user review.
+Receipt lookup remains the riskiest external integration. The app presents a
+source picker first, with Camera before Photo and manual QR-string input. It
+decodes QR images and secure live-camera frames with `jsqr`, stores validated
+pending receipt rows on the server, and creates expenses only after user review.
+Camera starts a live `getUserMedia` preview only on a trusted HTTPS origin;
+Photo is the explicit file or media-library fallback.
+
+Uploaded-image regression coverage uses an independently generated Russian
+fiscal payload inside a 514x410 screenshot, a compact code, and a rotated code
+at the current 40% minimum contrast boundary. A passing decode must also parse
+into the expected fiscal date, amount, FN, FD, FP, and operation type.
 
 Taxcom remains a manual verification candidate through `receipt.taxcom.ru`.
 The app must not scrape Taxcom or any fiscal provider, bypass rate limits,
@@ -141,7 +149,7 @@ readiness checks below pass.
 | Node.js 24+ | npm scripts, Astro, React, tests, and migration runners |
 | Docker with Compose v5+ | local deployment checks and production-like stack |
 | Ruflo through npx | AI agent orchestration, memory, hooks, and swarm tools |
-| PostgreSQL 18 Docker container | local database and migration verification |
+| PostgreSQL 18 Docker Compose service | local database and migration verification |
 
 Readiness check:
 
@@ -156,9 +164,9 @@ docker exec auto-spendings-postgres pg_isready -U auto_spendings -d poizoncoded_
 docker exec auto-spendings-postgres psql -U auto_spendings -d poizoncoded_auto -c 'select current_database();'
 ```
 
-Expected: PostgreSQL accepts connections on `localhost:5432`, and
+Expected: PostgreSQL accepts connections through `localhost:5433`, and
 `poizoncoded_auto` exists. A PostgreSQL client alone is not enough; the default
-path runs the real PostgreSQL server through Docker.
+path runs the real PostgreSQL server through Docker Compose.
 
 ## Build Flow
 
@@ -172,7 +180,7 @@ root `plans/` and `tasks/` files:
 ls plans tasks
 ```
 
-Expected app checks after the AI-generated scaffold exists:
+Expected app checks:
 
 ```bash
 npm run build
@@ -182,6 +190,37 @@ npm run lint
 npm run typecheck
 git diff --check
 ```
+
+Real mobile-camera development:
+
+```bash
+npm run dev:https
+```
+
+This starts the frontend, PostgreSQL/migrations, and a pinned Cloudflare Quick
+Tunnel container. Open the generated `https://*.trycloudflare.com/receipts`
+URL printed by the `https` process. You can also open the LAN HTTP app, choose
+Camera, and tap `Открыть HTTPS-камеру`; the development UI discovers the
+current tunnel, transfers the unlocked profile through a short-lived one-time
+development token, and opens the live scanner directly. The trusted HTTPS
+origin exposes `getUserMedia`; no second PIN entry or repeated Camera selection
+is required.
+
+The Quick Tunnel URL is temporary and publicly reachable while the command is
+running. Use it only for development, do not enter real private data, and stop
+the process when testing is complete. If the app is already running on port
+`4321`, start only the HTTPS bridge with `npm run dev:tunnel`.
+
+For layout checks that do not need a live camera, use `npm run dev:lan` and
+open `http://<LAN-IP>:4321/dashboard`. If `4321` is occupied, use
+`npm run dev:lan:alt` and port `4322`.
+
+Frontend dev first runs `npm run dev:rebuild`, which removes generated
+Astro/Vite state and runs `astro sync`. Plain LAN HTTP cannot use browser
+`getUserMedia`; Camera explains that HTTPS is required and links to the active
+development tunnel instead of presenting a file picker as a camera. The handoff
+never puts the long-lived session cookie in the URL. Photo and QR string remain
+available on HTTP.
 
 ## Documentation
 

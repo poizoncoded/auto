@@ -10,14 +10,15 @@
 remaining receipt-provider risk through a permission-safe spike.
 
 **Architecture:** The root checkout is the product source of truth.
-Application code should be generated here as a single mobile-first Astro
-application with React islands, TypeORM `EntitySchema`, PostgreSQL migrations,
-and server-side API routes. `plans/` and `tasks/` are the only product build
-inputs; local app snapshots are not reference material.
+Application code now lives here as a single mobile-first Astro application with
+React islands, TypeORM `EntitySchema`, PostgreSQL migrations, and server-side
+API routes. `plans/` and `tasks/` remain the product build inputs; local app
+snapshots are not reference material.
 
 **Tech Stack:** Node.js 24+, Ruflo through `npx`, Astro 7.1.3, React 19.2.7,
-TypeScript 7.0.2, TypeORM 1.1.0, PostgreSQL 18 through Docker, Docker Compose
-v5+, Vitest 4.1.10, ESLint 10.7.0, `@zxing/browser` 0.2.1, `mprocs` 0.9.6.
+TypeScript 5.9.3, TypeORM 1.1.0, PostgreSQL 18 through Docker, Docker Compose
+v5+, Vitest 4.1.10, ESLint 10.7.0, `jsqr` 1.4.0, test-only `qrcode` 1.5.4,
+`mprocs` 0.9.6.
 
 ## Global Constraints
 
@@ -41,8 +42,12 @@ v5+, Vitest 4.1.10, ESLint 10.7.0, `@zxing/browser` 0.2.1, `mprocs` 0.9.6.
   relevant plan or task before generating implementation code.
 - Keep the first runtime target on localhost.
 - Design mobile first, beginning with a stable 390px viewport.
+- Verify the real receipt camera through the opt-in `npm run dev:https`
+  workflow. Plain LAN HTTP cannot use `getUserMedia` and must never present a
+  file input as Camera; when the tunnel is active, it must offer a one-time
+  authenticated HTTPS handoff that opens Camera directly.
 - Use PostgreSQL database name `poizoncoded_auto`; the default local server is
-  Docker container `auto-spendings-postgres`.
+  Docker Compose container `auto-spendings-postgres`.
 - Keep RU-only formatting and Russian ruble amounts for the MVP.
 - Keep browser code away from direct PostgreSQL connections.
 - Keep database changes behind TypeORM migrations with `synchronize: false`.
@@ -74,7 +79,8 @@ Execute in order. A task is complete only when its completion gate passes.
 | 4 | [Vehicle Spending Core](04-vehicle-spending-core.md) | Create and verify vehicles, categories, expenses, fuel or charging records, and ownership. |
 | 5 | [Receipt Import Boundary](05-receipt-import-boundary.md) | Create and verify QR parsing, pending review, and provider-safety limits. |
 | 6 | [Dashboard Export PWA](06-dashboard-export-pwa.md) | Create and verify dashboard metrics, exports, routing, offline queue, and PWA shell. |
-| 7 | [Release Handoff](07-release-handoff.md) | Run final checks, document evidence, and prepare a clean handoff. |
+| 7 | [Persistence And Daily Use](07-persistence-and-daily-use-refactor.md) | Prove backend persistence, refactor state boundaries, and create the global mobile expense flow. |
+| 8 | [Release Handoff](08-release-handoff.md) | Run final checks, document evidence, and prepare a clean handoff. |
 
 ## Execution Rules
 
@@ -92,7 +98,7 @@ Execute in order. A task is complete only when its completion gate passes.
 
 ## Completion Gate For The Whole Flow
 
-- All seven task files have every checklist item marked.
+- All eight task files have every checklist item marked.
 - Task 1 prerequisite and local database readiness evidence is recorded before
   any app scaffold files are created.
 - Full verification passes from the root checkout after the scaffold exists:

@@ -1,0 +1,31 @@
+services:
+  db:
+    container_name: auto-spendings-postgres
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-poizoncoded_auto}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-auto_spendings_local}"
+      POSTGRES_USER: "${POSTGRES_USER:-auto_spendings}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - auto_spendings_postgres_data:/var/lib/postgresql
+
+  https:
+    image: cloudflare/cloudflared:2026.7.0
+    profiles: ["https"]
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --url
+      - http://host.docker.internal:4321
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+volumes:
+  auto_spendings_postgres_data:
